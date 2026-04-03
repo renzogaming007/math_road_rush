@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Math Road Rush</title>
+  <style>
+    :root {
+      --sky-top: #74dcff;
+      --sky-bottom: #dff9ff;
+      --grass-a: #57d86d;
+      --grass-b: #9bf55f;
+      --road-a: #34384f;
+      --road-b: #474d67;
+      --lane-line: rgba(255, 255, 255, 0.86);
+      --ui-blue: #2f8cff;
+      --ui-red: #ff5f72;
+      --ink: #17304a;
+      --white: #ffffff;
+      --shadow: 0 18px 36px rgba(18, 42, 74, 0.2);
+      --road-width: min(92vw, 460px);
+      --road-height: min(66vh, 720px);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      font-family: "Trebuchet MS", "Comic Sans MS", "Verdana", sans-serif;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.72) 0 5%, transparent 6%),
+        radial-gradient(circle at 82% 10%, rgba(255, 255, 255, 0.55) 0 4%, transparent 5%),
+        linear-gradient(180deg, var(--sky-top), #a4ecff 52%, #d7fbff 100%);
+      color: var(--white);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      left: -10vw;
+      width: 120vw;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      bottom: 10vh;
+      height: 23vh;
+      background: linear-gradient(180deg, #7ff28e, var(--grass-a));
+    }
+
+    body::after {
+      bottom: 3vh;
+      height: 18vh;
+      background: linear-gradient(180deg, #c8ff7e, var(--grass-b));
+    }
+
+    body.flash-green,
+    body.flash-red {
+      animation: screen-flash 0.4s ease;
+    }
+
+    body.flash-green {
+      box-shadow: inset 0 0 0 200vmax rgba(46, 219, 125, 0.2);
+    }
+
+    body.flash-red {
+      box-shadow: inset 0 0 0 200vmax rgba(255, 95, 114, 0.22);
+    }
+
+    @keyframes screen-flash {
+      0% { filter: brightness(1); }
+      30% { filter: brightness(1.1); }
+      100% { filter: brightness(1); }
+    }
+
+    .game-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 12px 12px 16px;
+      gap: 12px;
+    }
+
+    .hud {
+      width: min(96vw, 920px);
+      display: grid;
+      grid-template-columns: 1fr minmax(210px, 320px) 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.18);
+      border: 3px solid rgba(255, 255, 255, 0.42);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hud-side {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      min-height: 94px;
+    }
+
+    .score-badge,
+    .best-badge {
+      min-width: 96px;
+      padding: 8px 12px;
+      border-radius: 20px;
+      text-align: center;
+      background: linear-gradient(180deg, #fffbe3, #ffe17a);
+      color: #875800;
+      border: 3px solid rgba(255, 255, 255, 0.84);
+      box-shadow: 0 10px 18px rgba(255, 173, 0, 0.18);
+    }
+
+    .badge-label {
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .badge-value {
+      font-size: clamp(1.3rem, 4vw, 2rem);
+      line-height: 1;
+      font-weight: 900;
+      margin-top: 2px;
+    }
+
+    .lives {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      min-width: 118px;
+      min-height: 56px;
+      border-radius: 20px;
+      padding: 8px 14px;
+      background: linear-gradient(180deg, #fff8fb, #ffd7df);
+      border: 3px solid rgba(255, 255, 255, 0.84);
+      box-shadow: 0 10px 18px rgba(255, 93, 122, 0.16);
+    }
+
+    .heart {
+      font-size: clamp(1.2rem, 3vw, 1.9rem);
+      filter: drop-shadow(0 3px 0 rgba(119, 16, 42, 0.14));
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .heart.lost {
+      opacity: 0.25;
+      transform: scale(0.85);
+    }
+
+    .title-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      text-align: center;
+    }
+
+    .title-panel h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.3rem, 3.6vw, 2.1rem);
+      line-height: 1.05;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: #fffdf7;
+      text-shadow: 0 4px 0 rgba(20, 52, 80, 0.18);
+    }
+
+    .problem-label {
+      font-size: 0.84rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.9;
+    }
+
+    .problem-text {
+      min-height: 1.35em;
+      font-size: clamp(1.5rem, 4.4vw, 2.5rem);
+      line-height: 1.1;
+      font-weight: 900;
+      text-shadow: 0 4px 0 rgba(20, 52, 80, 0.18);
+    }
+
+    .status-bar {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: min(94vw, 460px);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(20, 48, 74, 0.16);
+      color: var(--ink);
+      font-size: clamp(0.98rem, 2.3vw, 1.1rem);
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .arena-wrap {
+      position: relative;
+      width: var(--road-width);
+      height: var(--road-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .road {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 34px;
+      overflow: hidden;
+      box-shadow: 0 30px 50px rgba(20, 44, 77, 0.28);
+      border: 5px solid rgba(255, 255, 255, 0.35);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+        linear-gradient(180deg, var(--road-b), var(--road-a));
+    }
+
+    .road::before,
+    .road::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      transform: translateX(-50%);
+      background:
+        repeating-linear-gradient(
+          180deg,
+          var(--lane-line) 0 28px,
+          transparent 28px 60px
+        );
+      opacity: 0.9;
+      z-index: 1;
+    }
+
+    .road::before {
+      left: 33.3333%;
+    }
+
+    .road::after {
+      left: 66.6666%;
+    }
+
+    .road-shoulder {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 16px;
+      background:
+        repeating-linear-gradient(
+          180deg,
+          #ffe36f 0 22px,
+          #fff8c0 22px 40px
+        );
+      z-index: 1;
+    }
+
+    .road-shoulder.left {
+      left: 0;
+    }
+
+    .road-shoulder.right {
+      right: 0;
+    }
+
+    .traffic-lines {
+      position: absolute;
+      inset: -120% 0 0;
+      background:
+        linear-gradient(180deg, transparent 0 100%),
+        repeating-linear-gradient(
+          180deg,
+          transparent 0 90px,
+          rgba(255,255,255,0.1) 90px 118px,
+          transparent 118px 180px
+        );
+      animation: road-scroll 0.75s linear infinite;
+      opacity: 0.55;
+      z-index: 0;
+    }
+
+    @keyframes road-scroll {
+      from { transform: translateY(0); }
+      to { transform: translateY(180px); }
+    }
+
+    .gate-layer,
+    .car-layer,
+    .fx-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .gate-layer,
+    .car-layer {
+      z-index: 3;
+    }
+
+    .fx-layer {
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .gate {
+      position: absolute;
+      top: 0;
+      height: clamp(72px, 11.5vw, 90px);
+      border-radius: 22px 22px 14px 14px;
+      border: 4px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 14px 22px rgba(17, 33, 58, 0.24);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--white);
+      font-weight: 900;
+      font-size: clamp(1.2rem, 3.3vw, 1.7rem);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.02)),
+        linear-gradient(180deg, #49afff, #2879ff);
+      text-shadow: 0 3px 0 rgba(17, 41, 83, 0.22);
+    }
+
+    .gate::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -12px;
+      width: 56%;
+      height: 18px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 6px 0 rgba(16, 38, 67, 0.08);
+    }
+
+    .player-car {
+      position: absolute;
+      bottom: 24px;
+      width: clamp(60px, 11.5vw, 76px);
+      height: clamp(96px, 18vw, 116px);
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.16s cubic-bezier(0.2, 0.85, 0.35, 1.2);
+      z-index: 4;
+    }
+
+    .car-body {
+      position: absolute;
+      inset: 8px 8px 12px;
+      border-radius: 26px 26px 18px 18px;
+      background:
+        linear-gradient(180deg, #ff8e59, #ff5d4f 44%, #d73937 100%);
+      border: 4px solid rgba(255, 255, 255, 0.75);
+      box-shadow: 0 12px 18px rgba(116, 18, 24, 0.25);
+    }
+
+    .car-body::before {
+      content: "";
+      position: absolute;
+      inset: 16px 13px 30px;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, #d6fbff, #84d3ff);
+      border: 4px solid rgba(255, 255, 255, 0.72);
+    }
+
+    .car-body::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      width: 42px;
+      height: 12px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: rgba(255, 223, 117, 0.95);
+    }
+
+    .wheel {
+      position: absolute;
+      width: 16px;
+      height: 28px;
+      border-radius: 10px;
+      background: #1e2535;
+      top: 28px;
+      box-shadow: inset 0 0 0 4px #4f566b;
+    }
+
+    .wheel.front-left,
+    .wheel.back-left {
+      left: 0;
+    }
+
+    .wheel.front-right,
+    .wheel.back-right {
+      right: 0;
+    }
+
+    .wheel.back-left,
+    .wheel.back-right {
+      top: auto;
+      bottom: 18px;
+    }
+
+    .player-car.bump {
+      animation: car-bump 0.18s ease;
+    }
+
+    @keyframes car-bump {
+      0% { transform: translate(var(--car-x), 0) scale(1); }
+      50% { transform: translate(var(--car-x), -5px) scale(1.03); }
+      100% { transform: translate(var(--car-x), 0) scale(1); }
+    }
+
+    .feedback-text {
+      position: absolute;
+      left: 50%;
+      top: 22%;
+      transform: translate(-50%, 0);
+      font-size: clamp(1.4rem, 5vw, 2.4rem);
+      font-weight: 900;
+      text-shadow: 0 4px 0 rgba(18, 45, 75, 0.24);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .feedback-text.show {
+      animation: pop-text 0.9s ease;
+    }
+
+    .feedback-text.good {
+      color: #fff56f;
+    }
+
+    .feedback-text.bad {
+      color: #ffd2d8;
+    }
+
+    @keyframes pop-text {
+      0% { opacity: 0; transform: translate(-50%, 12px) scale(0.8); }
+      20% { opacity: 1; transform: translate(-50%, -2px) scale(1.08); }
+      70% { opacity: 1; transform: translate(-50%, -20px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -42px) scale(0.94); }
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(14, 32, 54, 0.34);
+      backdrop-filter: blur(8px);
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-card {
+      width: min(92vw, 420px);
+      max-width: 100%;
+      max-height: calc(100% - 20px);
+      padding: 24px 22px;
+      border-radius: 28px;
+      text-align: center;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.95), rgba(244,252,255,0.92));
+      border: 4px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 26px 50px rgba(11, 32, 53, 0.22);
+      overflow: auto;
+    }
+
+    .overlay-card h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.55rem, 4vw, 2.15rem);
+      line-height: 1;
+      color: #1d4268;
+    }
+
+    .overlay-card p {
+      margin: 8px 0;
+      font-size: clamp(0.92rem, 2.1vw, 1.02rem);
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .mode-picker {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 10px;
+    }
+
+    .mode-button {
+      width: 100%;
+      text-align: left;
+      border: 3px solid rgba(41, 136, 255, 0.18);
+      border-radius: 22px;
+      padding: 12px 14px;
+      color: var(--ink);
+      background: linear-gradient(180deg, #ffffff, #eef8ff);
+      box-shadow: 0 10px 20px rgba(27, 77, 126, 0.08);
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .mode-button strong {
+      display: block;
+      font-size: 1.02rem;
+      margin-bottom: 4px;
+    }
+
+    .mode-button span {
+      display: block;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      opacity: 0.88;
+      font-weight: 700;
+    }
+
+    .mode-button.selected {
+      border-color: rgba(41, 136, 255, 0.9);
+      background: linear-gradient(180deg, #eef8ff, #d6eeff);
+      box-shadow: 0 14px 24px rgba(41, 136, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .big-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 22px;
+      font-size: clamp(1rem, 2.9vw, 1.15rem);
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      color: var(--white);
+      background: linear-gradient(180deg, #ffb24e, #ff8d31);
+      box-shadow: 0 12px 20px rgba(235, 116, 29, 0.28);
+      cursor: pointer;
+    }
+
+    .big-button:active {
+      transform: translateY(1px);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .big-button.secondary {
+      background: linear-gradient(180deg, #4db2ff, #2f86ef);
+      box-shadow: 0 12px 20px rgba(47, 134, 239, 0.24);
+    }
+
+    .controls {
+      display: flex;
+      gap: 14px;
+      width: min(92vw, 460px);
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-button {
+      flex: 1;
+      min-height: 66px;
+      border: 0;
+      border-radius: 24px;
+      color: var(--white);
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
+      font-weight: 900;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0)),
+        linear-gradient(180deg, var(--ui-blue), #2567de);
+      border: 3px solid rgba(255, 255, 255, 0.38);
+      box-shadow: var(--shadow);
+      touch-action: manipulation;
+    }
+
+    .control-button:active {
+      transform: scale(0.98);
+    }
+
+    .tip {
+      font-size: 0.96rem;
+      font-weight: 900;
+      color: #204264;
+      opacity: 0.92;
+    }
+
+    @media (max-width: 760px) {
+      .hud {
+        grid-template-columns: 1fr;
+      }
+
+      .hud-side {
+        min-height: 82px;
+      }
+
+      .arena-wrap {
+        height: min(60vh, 640px);
+      }
+
+      .status-bar {
+        min-height: 34px;
+      }
+    }
+
+    @media (max-height: 760px) {
+      .game-shell {
+        gap: 10px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+      }
+
+      .arena-wrap {
+        height: min(54vh, 540px);
+      }
+
+      .control-button {
+        min-height: 58px;
+      }
+    }
+
+    @media (orientation: landscape) and (max-height: 980px) {
+      .game-shell {
+        gap: 8px;
+        padding: 8px 10px 10px;
+      }
+
+      .hud {
+        width: min(98vw, 980px);
+        gap: 8px;
+      }
+
+      .hud-side {
+        min-height: 70px;
+        padding: 8px 10px;
+      }
+
+      .title-panel {
+        padding: 8px 12px;
+      }
+
+      .title-panel h1 {
+        font-size: clamp(1.05rem, 2vw, 1.55rem);
+        margin-bottom: 2px;
+      }
+
+      .problem-label {
+        font-size: 0.74rem;
+      }
+
+      .problem-text {
+        font-size: clamp(1.25rem, 3vw, 2rem);
+        min-height: 1.2em;
+      }
+
+      .badge-value {
+        font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+      }
+
+      .lives {
+        min-height: 46px;
+        padding: 6px 10px;
+      }
+
+      .status-bar {
+        min-height: 30px;
+        padding: 4px 10px;
+        font-size: clamp(0.86rem, 1.6vw, 1rem);
+      }
+
+      .arena-wrap {
+        height: min(62vh, 640px);
+      }
+
+      .overlay {
+        padding: 10px;
+      }
+
+      .overlay-card {
+        width: min(84vw, 460px);
+        max-height: calc(100% - 8px);
+        padding: 14px 14px 16px;
+        border-radius: 24px;
+      }
+
+      .overlay-card h2 {
+        font-size: clamp(1.2rem, 2vw, 1.7rem);
+        margin-bottom: 4px;
+      }
+
+      .overlay-card p {
+        margin: 4px 0;
+        font-size: clamp(0.78rem, 1.1vw, 0.9rem);
+        line-height: 1.28;
+      }
+
+      .mode-picker {
+        gap: 6px;
+        margin: 8px 0 6px;
+      }
+
+      .mode-button {
+        padding: 8px 10px;
+      }
+
+      .mode-button strong {
+        font-size: 0.88rem;
+        margin-bottom: 2px;
+      }
+
+      .mode-button span {
+        font-size: 0.74rem;
+      }
+
+      .big-button {
+        padding: 10px 16px;
+        font-size: clamp(0.84rem, 1.2vw, 0.96rem);
+      }
+
+      .controls {
+        width: min(90vw, 420px);
+        gap: 10px;
+      }
+
+      .control-button {
+        min-height: 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <div class="hud">
+      <div class="panel hud-side">
+        <div class="score-badge">
+          <div class="badge-label">Score</div>
+          <div class="badge-value" id="scoreValue">0</div>
+        </div>
+        <div class="score-badge best-badge">
+          <div class="badge-label">Best</div>
+          <div class="badge-value" id="bestValue">0</div>
+        </div>
+      </div>
+
+      <div class="panel title-panel">
+        <h1>Math Road Rush</h1>
+        <div class="problem-label">Current Problem</div>
+        <div class="problem-text" id="problemText">Tap Start!</div>
+      </div>
+
+      <div class="panel hud-side">
+        <div class="lives" id="livesBox" aria-label="Lives"></div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Pick the lane with the right answer!</div>
+
+    <div class="arena-wrap">
+      <div class="road" id="road">
+        <div class="road-shoulder left"></div>
+        <div class="road-shoulder right"></div>
+        <div class="traffic-lines"></div>
+        <div class="gate-layer" id="gateLayer"></div>
+        <div class="car-layer">
+          <div class="player-car" id="playerCar" aria-label="Player car">
+            <div class="wheel front-left"></div>
+            <div class="wheel front-right"></div>
+            <div class="wheel back-left"></div>
+            <div class="wheel back-right"></div>
+            <div class="car-body"></div>
+          </div>
+        </div>
+        <div class="fx-layer">
+          <div class="feedback-text" id="feedbackText"></div>
+        </div>
+
+        <div class="overlay" id="startOverlay">
+          <div class="overlay-card">
+            <h2>Start Your Math Drive!</h2>
+            <p>Steer into the gate with the correct answer before it reaches your car.</p>
+            <p>Use Left/Right Arrow or A/D. Mobile racers can use the giant buttons below.</p>
+            <div class="mode-picker" id="modePicker">
+              <button class="mode-button selected" data-mode="easy" type="button">
+                <strong>Easy</strong>
+                <span>Single-digit problems with gentle math to build confidence.</span>
+              </button>
+              <button class="mode-button" data-mode="intermediate" type="button">
+                <strong>Intermediate</strong>
+                <span>Mixed single- and double-digit math with all four operations.</span>
+              </button>
+              <button class="mode-button" data-mode="hard" type="button">
+                <strong>Hard</strong>
+                <span>Harder double-digit combinations across all four operations.</span>
+              </button>
+            </div>
+            <p class="tip">3 lives. 1 point per correct gate. Best score saves automatically.</p>
+            <button class="big-button" id="startButton" type="button">Start Game</button>
+          </div>
+        </div>
+
+        <div class="overlay hidden" id="gameOverOverlay">
+          <div class="overlay-card">
+            <h2>Game Over</h2>
+            <p id="finalScoreText">Final Score: 0</p>
+            <p id="bestScoreText">Best Score: 0</p>
+            <p>Jump back in and beat your best road run.</p>
+            <div class="button-row">
+              <button class="big-button" id="replayButton" type="button">Play Again</button>
+              <button class="big-button secondary" id="changeModeButton" type="button">Choose Mode</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-button" id="leftButton" type="button" aria-label="Move left">&larr; Left</button>
+      <button class="control-button" id="rightButton" type="button" aria-label="Move right">Right &rarr;</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "mathRoadRushBestScore";
+      const road = document.getElementById("road");
+      const gateLayer = document.getElementById("gateLayer");
+      const playerCar = document.getElementById("playerCar");
+      const scoreValue = document.getElementById("scoreValue");
+      const bestValue = document.getElementById("bestValue");
+      const problemText = document.getElementById("problemText");
+      const livesBox = document.getElementById("livesBox");
+      const statusBar = document.getElementById("statusBar");
+      const feedbackText = document.getElementById("feedbackText");
+      const startOverlay = document.getElementById("startOverlay");
+      const gameOverOverlay = document.getElementById("gameOverOverlay");
+      const startButton = document.getElementById("startButton");
+      const replayButton = document.getElementById("replayButton");
+      const changeModeButton = document.getElementById("changeModeButton");
+      const finalScoreText = document.getElementById("finalScoreText");
+      const bestScoreText = document.getElementById("bestScoreText");
+      const leftButton = document.getElementById("leftButton");
+      const rightButton = document.getElementById("rightButton");
+      const modePicker = document.getElementById("modePicker");
+
+      const MODES = {
+        easy: {
+          label: "Easy",
+          baseSpeed: 82,
+          speedGain: 3.7,
+          burstEvery: 5,
+          burstAmount: 3
+        },
+        intermediate: {
+          label: "Intermediate",
+          baseSpeed: 82,
+          speedGain: 3.7,
+          burstEvery: 5,
+          burstAmount: 3
+        },
+        hard: {
+          label: "Hard",
+          baseSpeed: 82,
+          speedGain: 3.7,
+          burstEvery: 5,
+          burstAmount: 3
+        }
+      };
+
+      const laneCount = 3;
+      const state = {
+        active: false,
+        score: 0,
+        best: 0,
+        mode: "easy",
+        lives: 3,
+        lane: 1,
+        laneCenters: [0, 0, 0],
+        laneWidth: 0,
+        carWidth: 0,
+        gateWidth: 0,
+        gateHeight: 0,
+        gateY: 0,
+        gateSpeed: 145,
+        currentRound: null,
+        roundResolved: false,
+        lastTime: 0,
+        animationId: 0,
+        resizeTicking: false,
+        audioCtx: null
+      };
+
+      const praiseWords = ["Awesome!", "Great Job!", "Zoom!", "Correct!", "Nice One!"];
+      const wrongWords = ["Oops!", "Try Again!", "Wrong Lane!", "Almost!", "Missed It!"];
+
+      function init() {
+        loadBest();
+        applyModeSelection(state.mode);
+        renderLives();
+        updateHud();
+        computeLaneMetrics();
+        attachEvents();
+      }
+
+      function attachEvents() {
+        window.addEventListener("keydown", onKeyDown);
+        startButton.addEventListener("click", startGame);
+        replayButton.addEventListener("click", startGame);
+        changeModeButton.addEventListener("click", showModePicker);
+        bindMoveButton(leftButton, () => moveLane(-1));
+        bindMoveButton(rightButton, () => moveLane(1));
+        modePicker.addEventListener("click", onModePickerClick);
+        window.addEventListener("resize", handleResize, { passive: true });
+      }
+
+      function showModePicker() {
+        state.active = false;
+        cancelAnimationFrame(state.animationId);
+        gameOverOverlay.classList.add("hidden");
+        startOverlay.classList.remove("hidden");
+        statusBar.textContent = "Choose a mode, then hit Start Game!";
+        problemText.textContent = "Tap Start!";
+        clearRound();
+      }
+
+      function onModePickerClick(event) {
+        const button = event.target.closest(".mode-button");
+        if (!button) return;
+        applyModeSelection(button.dataset.mode);
+      }
+
+      function applyModeSelection(mode) {
+        if (!MODES[mode]) return;
+        state.mode = mode;
+        const buttons = modePicker.querySelectorAll(".mode-button");
+        for (const button of buttons) {
+          button.classList.toggle("selected", button.dataset.mode === mode);
+        }
+      }
+
+      function bindMoveButton(button, handler) {
+        const press = (event) => {
+          event.preventDefault();
+          if (!state.active) return;
+          resumeAudio();
+          handler();
+        };
+        button.addEventListener("pointerdown", press);
+      }
+
+      function onKeyDown(event) {
+        if (!state.active) return;
+        const key = event.key.toLowerCase();
+        if (key === "arrowleft" || key === "a") {
+          event.preventDefault();
+          resumeAudio();
+          moveLane(-1);
+        } else if (key === "arrowright" || key === "d") {
+          event.preventDefault();
+          resumeAudio();
+          moveLane(1);
+        }
+      }
+
+      function handleResize() {
+        if (state.resizeTicking) return;
+        state.resizeTicking = true;
+        requestAnimationFrame(() => {
+          computeLaneMetrics();
+          state.resizeTicking = false;
+        });
+      }
+
+      function computeLaneMetrics() {
+        const rect = road.getBoundingClientRect();
+        state.laneWidth = rect.width / laneCount;
+        state.carWidth = Math.min(76, Math.max(60, state.laneWidth * 0.46));
+        state.gateHeight = Math.min(90, Math.max(72, rect.height * 0.12));
+        state.gateWidth = Math.min(112, Math.max(78, state.laneWidth * 0.7));
+        state.laneCenters = Array.from({ length: laneCount }, (_, index) => (index + 0.5) * state.laneWidth);
+        playerCar.style.width = state.carWidth + "px";
+        positionCar();
+        positionCurrentGates();
+      }
+
+      function positionCar() {
+        const x = state.laneCenters[state.lane] - state.carWidth / 2;
+        playerCar.style.setProperty("--car-x", x + "px");
+        playerCar.style.transform = "translate3d(" + x + "px, 0, 0)";
+      }
+
+      function positionCurrentGates() {
+        if (!state.currentRound) return;
+        for (let i = 0; i < state.currentRound.elements.length; i += 1) {
+          const gate = state.currentRound.elements[i];
+          const x = state.laneCenters[i] - state.gateWidth / 2;
+          gate.style.width = state.gateWidth + "px";
+          gate.style.height = state.gateHeight + "px";
+          gate.style.transform = "translate3d(" + x + "px, " + state.gateY + "px, 0)";
+        }
+      }
+
+      function startGame() {
+        resumeAudio();
+        cancelAnimationFrame(state.animationId);
+        state.active = true;
+        state.score = 0;
+        state.lives = 3;
+        state.lane = 1;
+        state.gateY = -140;
+        state.lastTime = 0;
+        state.roundResolved = false;
+        clearRound();
+        startOverlay.classList.add("hidden");
+        gameOverOverlay.classList.add("hidden");
+        document.body.classList.remove("flash-green", "flash-red");
+        feedbackText.className = "feedback-text";
+        statusBar.textContent = MODES[state.mode].label + " mode: find the correct answer lane!";
+        renderLives();
+        updateHud();
+        computeLaneMetrics();
+        spawnRound();
+        state.animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function gameLoop(timestamp) {
+        if (!state.active) return;
+        if (!state.lastTime) {
+          state.lastTime = timestamp;
+        }
+        const delta = Math.min(0.032, (timestamp - state.lastTime) / 1000);
+        state.lastTime = timestamp;
+
+        state.gateY += state.gateSpeed * delta;
+        positionCurrentGates();
+        checkRoundCollision();
+
+        if (state.currentRound && state.gateY > road.clientHeight + 30) {
+          spawnRound();
+        }
+
+        state.animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function spawnRound() {
+        clearRound();
+        state.roundResolved = false;
+        state.gateY = -state.gateHeight - 28;
+        state.currentRound = buildRound();
+        problemText.textContent = state.currentRound.prompt;
+        state.gateSpeed = getSpeedForCurrentRun();
+        state.currentRound.elements = state.currentRound.choices.map((choice, laneIndex) => {
+          const gate = document.createElement("div");
+          gate.className = "gate";
+          gate.textContent = String(choice);
+          gateLayer.appendChild(gate);
+          return gate;
+        });
+        positionCurrentGates();
+      }
+
+      function clearRound() {
+        gateLayer.innerHTML = "";
+        state.currentRound = null;
+      }
+
+      function checkRoundCollision() {
+        if (!state.currentRound || state.roundResolved) return;
+        const hitLine = road.clientHeight - playerCar.offsetHeight - 8;
+        if (state.gateY + state.gateHeight < hitLine) return;
+        state.roundResolved = true;
+        const correct = state.lane === state.currentRound.correctLane;
+        if (correct) {
+          state.score += 1;
+          saveBest();
+          updateHud();
+          flashBody("green");
+          showFeedback(randomFrom(praiseWords), true);
+          statusBar.textContent = "Correct! The road is speeding up!";
+          playSound("correct");
+        } else {
+          state.lives -= 1;
+          renderLives();
+          updateHud();
+          flashBody("red");
+          showFeedback(randomFrom(wrongWords), false);
+          statusBar.textContent = "Wrong answer. Watch the problem!";
+          playSound("wrong");
+          playerCar.classList.remove("bump");
+          void playerCar.offsetWidth;
+          playerCar.classList.add("bump");
+        }
+
+        if (state.lives <= 0) {
+          endGame();
+          return;
+        }
+
+        setTimeout(() => {
+          if (state.active) spawnRound();
+        }, 260);
+      }
+
+      function moveLane(direction) {
+        const nextLane = clamp(state.lane + direction, 0, laneCount - 1);
+        if (nextLane === state.lane) return;
+        state.lane = nextLane;
+        positionCar();
+        playSound("move");
+      }
+
+      function renderLives() {
+        livesBox.innerHTML = "";
+        for (let i = 0; i < 3; i += 1) {
+          const heart = document.createElement("div");
+          heart.className = "heart" + (i >= state.lives ? " lost" : "");
+          heart.innerHTML = "&#10084;";
+          livesBox.appendChild(heart);
+        }
+      }
+
+      function updateHud() {
+        scoreValue.textContent = String(state.score);
+        bestValue.textContent = String(state.best);
+      }
+
+      function endGame() {
+        state.active = false;
+        cancelAnimationFrame(state.animationId);
+        saveBest();
+        finalScoreText.textContent = "Final Score: " + state.score;
+        bestScoreText.textContent = "Best Score: " + state.best;
+        gameOverOverlay.classList.remove("hidden");
+        statusBar.textContent = "Three misses. Time for another run!";
+        playSound("gameover");
+      }
+
+      function getSpeedForCurrentRun() {
+        const mode = MODES[state.mode];
+        const burst = Math.floor(state.score / mode.burstEvery) * mode.burstAmount;
+        return mode.baseSpeed + state.score * mode.speedGain + burst;
+      }
+
+      function getDifficulty() {
+        const score = state.score;
+        if (state.mode === "easy") {
+          if (score <= 5) return 1;
+          if (score <= 11) return 2;
+          return 3;
+        }
+        if (state.mode === "intermediate") {
+          if (score <= 4) return 1;
+          if (score <= 10) return 2;
+          return 4;
+        }
+        if (score <= 3) return 2;
+        return 4;
+      }
+
+      function buildRound() {
+        const difficulty = getDifficulty();
+        let data;
+        if (state.mode === "easy") {
+          data = buildEasyRound(difficulty);
+        } else if (state.mode === "intermediate") {
+          data = buildIntermediateRound(difficulty);
+        } else {
+          data = buildHardRound(difficulty);
+        }
+
+        const laneChoices = shuffle([
+          data.answer,
+          data.wrongChoices[0],
+          data.wrongChoices[1]
+        ]);
+
+        return {
+          prompt: data.prompt,
+          choices: laneChoices,
+          correctLane: laneChoices.indexOf(data.answer),
+          answer: data.answer,
+          elements: []
+        };
+      }
+
+      function buildEasyRound(difficulty) {
+        if (difficulty === 1) {
+          return makeAddSubRound(1, 6, false);
+        }
+        if (difficulty === 2) {
+          return Math.random() < 0.75
+            ? makeAddSubRound(2, 9, false)
+            : makeMultiplicationRound(2, 4);
+        }
+        return Math.random() < 0.7
+          ? makeAddSubRound(3, 9, false)
+          : makeMultiplicationRound(2, 5);
+      }
+
+      function buildIntermediateRound(difficulty) {
+        if (difficulty === 1) {
+          const options = [
+            () => makeAddSubRound(1, 8, false),
+            () => makeAddSubRound(2, 12, false),
+            () => makeMultiplicationRound(2, 5),
+            () => makeMultiplicationRound(2, 6)
+          ];
+          return randomFrom(options)();
+        }
+        if (difficulty === 2) {
+          const picker = Math.random();
+          if (picker < 0.25) return makeAddSubRound(2, 9, false);
+          if (picker < 0.5) return makeAddSubRound(6, 18, false);
+          if (picker < 0.75) return makeMultiplicationRound(2, 7);
+          return makeDivisionRound(2, 9, 2, 12);
+        }
+        const options = [
+          () => makeAddSubRound(2, 9, false),
+          () => makeAddSubRound(8, 24, true),
+          () => makeMultiplicationRound(2, 7),
+          () => makeMultiplicationRound(4, 9),
+          () => makeDivisionRound(2, 8, 2, 9),
+          () => makeDivisionRound(3, 9, 3, 14)
+        ];
+        return randomFrom(options)();
+      }
+
+      function buildHardRound() {
+        const options = [
+          () => makeAddSubRound(2, 9, false),
+          () => makeAddSubRound(4, 18, false),
+          () => makeAddSubRound(10, 40, true),
+          () => makeMultiplicationRound(2, 7),
+          () => makeMultiplicationRound(4, 9),
+          () => makeMultiplicationRound(10, 12, 10, 12),
+          () => makeDivisionRound(2, 9, 2, 12),
+          () => makeDivisionRound(4, 12, 10, 20)
+        ];
+        return randomFrom(options)();
+      }
+
+      function makeAddSubRound(min, max, allowNegativeWide) {
+        const addition = Math.random() < 0.5;
+        let a = randInt(min, max);
+        let b = randInt(min, max);
+        let answer;
+        let prompt;
+
+        if (addition) {
+          answer = a + b;
+          prompt = a + " + " + b + " = ?";
+        } else {
+          if (!allowNegativeWide && b > a) {
+            [a, b] = [b, a];
+          } else if (allowNegativeWide && Math.random() < 0.35 && b < a) {
+            [a, b] = [b, a];
+          }
+          answer = a - b;
+          prompt = a + " - " + b + " = ?";
+        }
+
+        return {
+          prompt,
+          answer,
+          wrongChoices: makeWrongAnswers(answer, {
+            spread: addition ? 3 : 4,
+            includeNearby: true
+          })
+        };
+      }
+
+      function makeMultiplicationRound(min, max, secondMin = 2, secondMax = Math.max(3, max - 1)) {
+        const a = randInt(min, max);
+        const b = randInt(secondMin, Math.max(secondMin, secondMax));
+        const answer = a * b;
+        return {
+          prompt: a + " \u00D7 " + b + " = ?",
+          answer,
+          wrongChoices: makeWrongAnswers(answer, {
+            spread: Math.max(4, Math.round(answer * 0.18)),
+            includeNearby: true
+          })
+        };
+      }
+
+      function makeDivisionRound(minDivisor, maxDivisor, minQuotient = 2, maxQuotient = Math.max(3, maxDivisor)) {
+        const divisor = randInt(minDivisor, maxDivisor);
+        const quotient = randInt(minQuotient, Math.max(minQuotient, maxQuotient));
+        const dividend = divisor * quotient;
+        return {
+          prompt: dividend + " \u00F7 " + divisor + " = ?",
+          answer: quotient,
+          wrongChoices: makeWrongAnswers(quotient, {
+            spread: 3,
+            includeNearby: true,
+            minimum: 0
+          })
+        };
+      }
+
+      function makeWrongAnswers(answer, options) {
+        const config = Object.assign({
+          spread: 3,
+          includeNearby: true,
+          minimum: -99
+        }, options);
+
+        const results = new Set();
+        const offsets = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5];
+
+        while (results.size < 2) {
+          let candidate;
+          if (config.includeNearby && Math.random() < 0.7) {
+            candidate = answer + randomFrom(offsets.slice(0, Math.max(4, config.spread + 2)));
+          } else {
+            candidate = answer + randInt(-config.spread, config.spread);
+          }
+
+          if (candidate === answer) {
+            candidate += candidate <= answer ? 1 : -1;
+          }
+
+          if (candidate < config.minimum) {
+            candidate = config.minimum + randInt(0, 3);
+          }
+
+          results.add(candidate);
+        }
+
+        return Array.from(results).slice(0, 2);
+      }
+
+      function flashBody(color) {
+        document.body.classList.remove("flash-green", "flash-red");
+        const className = color === "green" ? "flash-green" : "flash-red";
+        document.body.classList.add(className);
+        setTimeout(() => document.body.classList.remove(className), 360);
+      }
+
+      function showFeedback(text, good) {
+        feedbackText.textContent = text;
+        feedbackText.className = "feedback-text " + (good ? "good" : "bad") + " show";
+        setTimeout(() => {
+          feedbackText.className = "feedback-text";
+        }, 900);
+      }
+
+      function loadBest() {
+        const saved = Number(localStorage.getItem(STORAGE_KEY) || "0");
+        state.best = Number.isFinite(saved) ? Math.max(0, saved) : 0;
+        bestValue.textContent = String(state.best);
+      }
+
+      function saveBest() {
+        if (state.score > state.best) {
+          state.best = state.score;
+          localStorage.setItem(STORAGE_KEY, String(state.best));
+        }
+      }
+
+      function resumeAudio() {
+        if (!state.audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            state.audioCtx = new AudioContextClass();
+          }
+        }
+        if (state.audioCtx && state.audioCtx.state === "suspended") {
+          state.audioCtx.resume();
+        }
+      }
+
+      function playSound(type) {
+        if (!state.audioCtx) return;
+        const now = state.audioCtx.currentTime;
+        const gain = state.audioCtx.createGain();
+        gain.connect(state.audioCtx.destination);
+
+        if (type === "correct") {
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+          [520, 680, 860].forEach((freq, index) => {
+            const osc = state.audioCtx.createOscillator();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(freq, now + index * 0.03);
+            osc.connect(gain);
+            osc.start(now + index * 0.03);
+            osc.stop(now + 0.13 + index * 0.03);
+          });
+        } else if (type === "wrong") {
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          const osc = state.audioCtx.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(210, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.28);
+          osc.connect(gain);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        } else if (type === "move") {
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.05, now + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+          const osc = state.audioCtx.createOscillator();
+          osc.type = "square";
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.linearRampToValueAtTime(360, now + 0.06);
+          osc.connect(gain);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === "gameover") {
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+          [260, 205, 160].forEach((freq, index) => {
+            const osc = state.audioCtx.createOscillator();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(freq, now + index * 0.16);
+            osc.connect(gain);
+            osc.start(now + index * 0.16);
+            osc.stop(now + 0.25 + index * 0.16);
+          });
+        }
+      }
+
+      function shuffle(values) {
+        const copy = values.slice();
+        for (let i = copy.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function randomFrom(values) {
+        return values[Math.floor(Math.random() * values.length)];
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
